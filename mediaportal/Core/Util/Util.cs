@@ -201,7 +201,7 @@ namespace MediaPortal.Util
         ".wv";
     
     public static string VideoExtensionsDefault =
-      ".avi,.bdmv,.mpg,.mpeg,.mp4,.divx,.ogm,.mkv,.wmv,.qt,.rm,.mov,.mts,.m2ts,.sbe,.dvr-ms,.ts,.dat,.ifo,.flv,.m4v,.3gp";
+      ".avi,.bdmv,.mpg,.mpeg,.mp4,.divx,.ogm,.mkv,.wmv,.qt,.rm,.mov,.mts,.m2ts,.sbe,.dvr-ms,.ts,.dat,.ifo,.flv,.m4v,.3gp,.wtv,.ogv";
 
     public static string PictureExtensionsDefault = ".jpg,.jpeg,.gif,.bmp,.png";
     public static string ImageExtensionsDefault = ".cue,.bin,.iso,.ccd,.bwt,.mds,.cdi,.nrg,.pdi,.b5t,.img";
@@ -2062,7 +2062,7 @@ namespace MediaPortal.Util
           //if (bInternal) return false;
           string strPath = xmlreader.GetValueAsString("movieplayer", "path", "");
           string strParams = xmlreader.GetValueAsString("movieplayer", "arguments", "");
-          if (extension.ToLowerInvariant() == ".ifo" || extension.ToLowerInvariant() == ".vob")
+          if (extension.ToLowerInvariant() == ".ifo" || extension.ToLowerInvariant() == ".vob" || extension.ToLowerInvariant() == ".bdmv")
           {
             strPath = xmlreader.GetValueAsString("dvdplayer", "path", "");
             strParams = xmlreader.GetValueAsString("dvdplayer", "arguments", "");
@@ -2258,17 +2258,20 @@ namespace MediaPortal.Util
 
     public static bool FileDelete(string strFile)
     {
-      if (String.IsNullOrEmpty(strFile)) return true;
+      if (String.IsNullOrEmpty(strFile)) return false;
       try
       {
         if (!File.Exists(strFile))
-          return true;
+        {
+          return false;
+        }
         File.Delete(strFile);
+        Log.Debug("Util: FileDelete {0} successful.", strFile);
         return true;
       }
       catch (Exception ex)
       {
-        Log.Error("Util: FileDelete(string strFile) error: {0}", ex.Message);
+        Log.Error("Util: FileDelete {0} error: {1}", strFile, ex.Message);
       }
       return false;
     }
@@ -2320,7 +2323,7 @@ namespace MediaPortal.Util
         }
         catch (Exception ex)
         {
-          Log.Info("Utils: DownLoadImage {1} failed: {0}", ex.Message, strURL);
+          Log.Error("Utils: DownLoadImage {1} failed: {0}", ex.Message, strURL);
         }
       }
     }
@@ -2339,8 +2342,12 @@ namespace MediaPortal.Util
         try
         {
           File.Copy(file, strFile, true);
+          Log.Debug("Util DownLoadAndCacheImage: Copying previously cached image {0} to {1}", file, strFile);
         }
-        catch (Exception) {}
+        catch (Exception ex)
+        {
+          Log.Error("Util DownLoadAndCacheImage: error copying cached image {0} to {1} - {2}", file, strFile, ex.Message);
+        }
         return;
       }
       DownLoadImage(strURL, file);
@@ -2353,10 +2360,11 @@ namespace MediaPortal.Util
           //string strFileL = ConvertToLargeCoverArt(strFile);
           //Util.Picture.CreateThumbnail(file, strFileL, (int)Thumbs.ThumbLargeResolution, (int)Thumbs.ThumbLargeResolution, 0);
           File.Copy(file, strFile, true);
+          Log.Debug("Util DownLoadAndCacheImage: Copying downloaded image {0} to {1}", file, strFile);
         }
         catch (Exception ex)
         {
-          Log.Warn("Util: error after downloading thumbnail {0} - {1}", strFile, ex.Message);
+          Log.Error("Util DownLoadAndCacheImage: error copying downloaded image {0} to {1} - {2}", file, strFile, ex.Message);
         }
       }
     }
@@ -2376,6 +2384,7 @@ namespace MediaPortal.Util
       string url = String.Format("mpcache-{0}", EncryptLine(strURL));
 
       string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.InternetCache), url);
+      FileDelete(file);
       DownLoadImage(strURL, file);
       
       if (File.Exists(file))
@@ -2386,7 +2395,7 @@ namespace MediaPortal.Util
         }
         catch (Exception ex)
         {
-          Log.Warn("Util: error after downloading thumbnail {0} - {1}", strFile, ex.Message);
+          Log.Error("Util DownLoadAndOverwriteCachedImage: error copying downloaded image {0} to {1} - {2}", file, strFile, ex.Message);
         }
       }
     }
@@ -2399,7 +2408,7 @@ namespace MediaPortal.Util
       try
       {
         HttpWebRequest wr = (HttpWebRequest)WebRequest.Create(strURL);
-        wr.Timeout = 5000;
+        wr.Timeout = 20000;
         try
         {
           // Use the current user in case an NTLM Proxy or similar is used.
